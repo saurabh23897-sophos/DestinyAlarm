@@ -1,6 +1,6 @@
 package com.example.destinyalarm;
 
-import static com.example.destinyalarm.Utils.Constants.ALARM_ACTIVITY_CONTEXT;
+import static com.example.destinyalarm.Utils.Constants.alarmActivityContext;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_CHANNEL_DESCRIPTION;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_CHANNEL_ID;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_CHANNEL_NAME;
@@ -47,7 +47,7 @@ public class AlarmNotificationService extends IntentService {
                 intent, PendingIntent.FLAG_UPDATE_CURRENT);
 
         NotificationCompat.Builder alarmNotificationBuilder =
-                new NotificationCompat.Builder(ALARM_ACTIVITY_CONTEXT, NOTIFICATION_CHANNEL_ID)
+                new NotificationCompat.Builder(alarmActivityContext, NOTIFICATION_CHANNEL_ID)
                         .setAutoCancel(true)
                         .setDefaults(Notification.DEFAULT_ALL)
                         .setSmallIcon(R.mipmap.ic_launcher)

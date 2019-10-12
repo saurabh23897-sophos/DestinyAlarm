@@ -6,8 +6,7 @@ import static com.example.destinyalarm.Utils.Constants.ALARM_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.ALARM_SET;
 import static com.example.destinyalarm.Utils.Constants.ALARM_STOPPED;
 import static com.example.destinyalarm.Utils.Constants.FLAGS;
-import static com.example.destinyalarm.Utils.Constants.MARKER_ICON;
-import static com.example.destinyalarm.Utils.Constants.MARKER_TITLE;
+import static com.example.destinyalarm.Utils.Constants.MAPBOX_ACCESS_TOKEN;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_ID;
 import static com.example.destinyalarm.Utils.Constants.PERMISSION_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.REQUEST_TO_ENABLE_SERVICES;
@@ -15,7 +14,6 @@ import static com.example.destinyalarm.Utils.Constants.SLEEP_DELAY;
 import static com.example.destinyalarm.Utils.Constants.THRESHOLD_DISTANCE_IN_METERS;
 
 import java.util.Calendar;
-import java.util.Objects;
 
 import android.app.AlarmManager;
 import android.app.NotificationManager;
@@ -32,27 +30,19 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
 
 import com.example.destinyalarm.Utils.Constants;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.places.AutocompleteFilter;
-import com.google.android.gms.location.places.Place;
-import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
-import com.google.android.gms.location.places.ui.PlaceSelectionListener;
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
+import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.Style;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class AlarmActivity extends FragmentActivity implements LocationListener, OnMapReadyCallback {
+public class AlarmActivity extends AppCompatActivity implements LocationListener {
 
     PendingIntent pendingIntent;
 
@@ -62,13 +52,16 @@ public class AlarmActivity extends FragmentActivity implements LocationListener,
     private Thread locationBasedAlarmTriggerThread;
 
     private Location destinationLocation;
-    GoogleMap map;
+    private MapView mapView;
+
+    private Bundle activitySavedInstanceState;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Constants.setALARM_ACTIVITY_CONTEXT(this);
+        Constants.setAlarmActivityContext(this);
+        activitySavedInstanceState = savedInstanceState;
 
         if (arePermissionRequiredForLocation()) {
             requestPermissions();
@@ -87,19 +80,59 @@ public class AlarmActivity extends FragmentActivity implements LocationListener,
 
         findViewById(R.id.setLocationButton).setOnClickListener(v -> setDestination());
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
-        Objects.requireNonNull(mapFragment).getMapAsync(this);
-
         locationBasedAlarmTriggerThread = new Thread(this::locationBasedAlarmTrigger);
         locationBasedAlarmTriggerThread.start();
 
-        setAutoCompleteFragment();
+        Mapbox.getInstance(this, MAPBOX_ACCESS_TOKEN);
+        setContentView(R.layout.activity_main);
+        mapView = findViewById(R.id.mapView);
+        mapView.onCreate(activitySavedInstanceState);
+        mapView.getMapAsync(mapboxMap -> mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
+            log.info("MapBox Map has been loaded");
+        }));
     }
 
     @Override
-    public void onDestroy() {
+    public void onStart() {
+        super.onStart();
+        mapView.onStart();
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mapView.onResume();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mapView.onStop();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
+    }
+
+    @Override
+    protected void onDestroy() {
         super.onDestroy();
         locationBasedAlarmTriggerThread = null;
+        mapView.onDestroy();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        mapView.onSaveInstanceState(outState);
     }
 
     @Override
@@ -139,47 +172,6 @@ public class AlarmActivity extends FragmentActivity implements LocationListener,
             }
             initAll();
         }
-    }
-
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        map = googleMap;
-        map.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-        map.setMyLocationEnabled(true);
-        map.setTrafficEnabled(true);
-        map.setIndoorEnabled(true);
-        map.setBuildingsEnabled(true);
-        map.getUiSettings().setZoomControlsEnabled(true);
-        map.addMarker(new MarkerOptions()
-                .position(new LatLng(0, 0))
-                .title(MARKER_TITLE)
-                .icon(MARKER_ICON));
-    }
-
-    private void setAutoCompleteFragment() {
-        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
-                getFragmentManager().findFragmentById(R.id.place_autocomplete_fragment);
-
-        AutocompleteFilter typeFilter = new AutocompleteFilter.Builder()
-                .setTypeFilter(AutocompleteFilter.TYPE_FILTER_ADDRESS)
-                .build();
-        autocompleteFragment.setFilter(typeFilter);
-
-        autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-            @Override
-            public void onPlaceSelected(Place place) {
-                map.clear();
-                map.addMarker(new MarkerOptions()
-                        .position(place.getLatLng())
-                        .title(place.getName().toString())
-                        .icon(MARKER_ICON));
-                map.moveCamera(CameraUpdateFactory.newLatLng(place.getLatLng()));
-                map.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 12.0f));
-            }
-
-            @Override
-            public void onError(Status status) {}
-        });
     }
 
     private void triggerAlarm() {

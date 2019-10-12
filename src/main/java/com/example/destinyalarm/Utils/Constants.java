@@ -5,15 +5,9 @@ import android.content.Context;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.Style;
 
-import com.google.android.gms.maps.model.BitmapDescriptor;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-
 import lombok.Setter;
 
 public class Constants {
-    public static final BitmapDescriptor MARKER_ICON =
-            BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED);
-
     public static final float THRESHOLD_DISTANCE_IN_METERS = 400;
 
     public static final int ALARM_DELAY = 5;
@@ -28,7 +22,8 @@ public class Constants {
     public static final String ALARM_MESSAGE = "Your Destination Is Near!";
     public static final String ALARM_SET = "Alarm Set For Your Destination!";
     public static final String ALARM_STOPPED = "Alarm Stopped!";
-    public static final String MARKER_TITLE = "Destination Marker";
+    public static final String MAPBOX_ACCESS_TOKEN =
+            "pk.eyJ1Ijoic2FuZHkyMzg5NyIsImEiOiJjazFuYnQ2OWUwOXhnM2JxM2Z4ZnkyNXpvIn0.5-DT-xdmtKjsvyXc_TARhg";
     public static final String NOTIFICATION_CHANNEL_DESCRIPTION = "Destination Alarm Channel";
     public static final String NOTIFICATION_CHANNEL_ID = "AlarmChannel";
     public static final String NOTIFICATION_CHANNEL_NAME = "Alarm Notification Channel";
@@ -42,5 +37,5 @@ public class Constants {
 
     @SuppressLint("StaticFieldLeak")
     @Setter
-    public static Context ALARM_ACTIVITY_CONTEXT;
+    public static Context alarmActivityContext;
 }
