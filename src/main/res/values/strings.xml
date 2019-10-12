@@ -3,6 +3,7 @@
     <string name="stop_alarm">Stop Alarm</string>
     <string name="set_alarm">Set Alarm</string>
     <string name="set_location">Set Location</string>
+    <string name="get_location">Search Places</string>
 
     <string name="mapbox_accessToken">pk.eyJ1Ijoic2FuZHkyMzg5NyIsImEiOiJjazFuYnQ2OWUwOXhnM2JxM2Z4ZnkyNXpvIn0.5-DT-xdmtKjsvyXc_TARhg</string>
 

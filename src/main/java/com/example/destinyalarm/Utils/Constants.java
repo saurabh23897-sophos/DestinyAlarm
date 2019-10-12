@@ -1,6 +1,8 @@
 package com.example.destinyalarm.Utils;
 
 import com.google.gson.JsonObject;
+import com.mapbox.api.geocoding.v5.models.CarmenFeature;
+import com.mapbox.geojson.Point;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -14,9 +16,11 @@ public class Constants {
 
     public static final int ALARM_DELAY = 5;
     public static final int ALARM_REQUEST_CODE = 133;
+    public static final int ANIMATION_DURATION = 500;
     public static final int FLAGS = 0;
     public static final int NOTIFICATION_ID = 1;
     public static final int PERMISSION_REQUEST_CODE = 101;
+    public static final int REQUEST_CODE_AUTOCOMPLETE = 10;
     public static final int SLEEP_DELAY = 5000;
 
     public static final long[] NOTIFICATION_VIBRATION_PATTERN = new long[]{0, 1000, 500, 1000};
@@ -41,4 +45,17 @@ public class Constants {
 
     @Setter
     public static JsonObject featureProperties;
+
+    public static final CarmenFeature HOME = CarmenFeature.builder().text("Home")
+            .geometry(Point.fromLngLat(12.988107, 77.698714))
+            .placeName("Amrutha Sparkling Nest Apartment")
+            .id("mapbox-home")
+            .properties(new JsonObject())
+            .build();
+    public static final CarmenFeature WORK = CarmenFeature.builder().text("Office")
+            .placeName("Amazon, Taurus 1, Bagmane Constellation Business Park")
+            .geometry(Point.fromLngLat(12.979543, 77.697223))
+            .id("mapbox-work")
+            .properties(new JsonObject())
+            .build();
 }

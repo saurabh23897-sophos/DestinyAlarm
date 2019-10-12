@@ -5,12 +5,16 @@ import static com.example.destinyalarm.Utils.Constants.ALARM_MESSAGE;
 import static com.example.destinyalarm.Utils.Constants.ALARM_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.ALARM_SET;
 import static com.example.destinyalarm.Utils.Constants.ALARM_STOPPED;
+import static com.example.destinyalarm.Utils.Constants.ANIMATION_DURATION;
 import static com.example.destinyalarm.Utils.Constants.FLAGS;
+import static com.example.destinyalarm.Utils.Constants.HOME;
 import static com.example.destinyalarm.Utils.Constants.MARKER_NAME;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_ID;
 import static com.example.destinyalarm.Utils.Constants.PERMISSION_REQUEST_CODE;
+import static com.example.destinyalarm.Utils.Constants.REQUEST_CODE_AUTOCOMPLETE;
 import static com.example.destinyalarm.Utils.Constants.SLEEP_DELAY;
 import static com.example.destinyalarm.Utils.Constants.THRESHOLD_DISTANCE_IN_METERS;
+import static com.example.destinyalarm.Utils.Constants.WORK;
 import static com.example.destinyalarm.Utils.Constants.featureProperties;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.eq;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
@@ -27,6 +31,7 @@ import java.util.HashMap;
 import java.util.Objects;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -53,6 +58,7 @@ import androidx.core.content.ContextCompat;
 
 import com.example.destinyalarm.Utils.Constants;
 import com.google.gson.JsonObject;
+import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
@@ -70,6 +76,8 @@ import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.PlaceAutocomplete;
+import com.mapbox.mapboxsdk.plugins.places.autocomplete.model.PlaceOptions;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 
@@ -82,7 +90,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     PendingIntent pendingIntent;
 
     private boolean setAlarm, clearSource;
-    private Button alarmButton, destinationButton;
+    private Button alarmButton, destinationButton, placesButton;
     private Thread locationBasedAlarmTriggerThread;
 
     private static final String GEOJSON_SOURCE_ID = "GEOJSON_SOURCE_ID";
@@ -97,6 +105,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     private GeoJsonSource source;
     private FeatureCollection featureCollection;
     private LatLng destinationLatLng;
+    private CarmenFeature home, work;
 
     private Bundle activitySavedInstanceState;
 
@@ -127,6 +136,10 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         destinationButton = findViewById(R.id.setLocationButton);
         destinationButton.setEnabled(false);
         destinationButton.setOnClickListener(v -> setDestination());
+
+        placesButton = findViewById(R.id.getLocationButton);
+        placesButton.setEnabled(false);
+        placesButton.setOnClickListener(v -> getLocationPlace());
 
         locationBasedAlarmTriggerThread = new Thread(this::locationBasedAlarmTrigger);
         locationBasedAlarmTriggerThread.start();
@@ -209,6 +222,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
             log.info("MapBox Map has been loaded");
             mapboxMap.addOnMapClickListener(this);
             enableLocationComponent(style);
+            placesButton.setEnabled(true);
         });
     }
 
@@ -219,7 +233,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         destinationButton.setEnabled(true);
         return true;
     }
-
 
     @Override
     public void onCameraIdle() {
@@ -241,6 +254,35 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         locationComponent.setLocationComponentEnabled(true);
         locationComponent.setCameraMode(CameraMode.TRACKING);
         locationComponent.setRenderMode(RenderMode.COMPASS);
+    }
+
+    public void getLocationPlace() {
+        Intent intent = new PlaceAutocomplete.IntentBuilder()
+                .accessToken(Mapbox.getAccessToken() != null ? Mapbox.getAccessToken() :
+                        getString(R.string.mapbox_accessToken))
+                .placeOptions(PlaceOptions.builder()
+                        .backgroundColor(Color.parseColor("#DDDDDD"))
+                        .addInjectedFeature(HOME)
+                        .addInjectedFeature(WORK)
+                        .limit(20)
+                        .build())
+                .build(this);
+        startActivityForResult(intent, REQUEST_CODE_AUTOCOMPLETE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == Activity.RESULT_OK && requestCode == REQUEST_CODE_AUTOCOMPLETE) {
+            CarmenFeature feature = PlaceAutocomplete.getPlace(data);
+            Point placePoint = (Point) feature.geometry();
+            if (placePoint != null) {
+                destinationLatLng = new LatLng(placePoint.latitude(), placePoint.longitude());
+                new LoadGeoJsonDataTask(this, destinationLatLng).execute();
+                destinationButton.setEnabled(true);
+            }
+            Toast.makeText(this, feature.text(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void triggerAlarm() {
@@ -359,7 +401,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
             mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(
                     new CameraPosition.Builder()
                             .target(destinationLatLng)
-                            .build()));
+                            .build()), ANIMATION_DURATION);
         }
     }
 
