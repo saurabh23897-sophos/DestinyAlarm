@@ -1,0 +1,37 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "marker-color": "#7e7e7e",
+        "marker-size": "medium",
+        "marker-symbol": "",
+        "name": "Bangalore"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.575279,
+          12.976750
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "marker-color": "#7e7e7e",
+        "marker-size": "medium",
+        "marker-symbol": "",
+        "name": "Custom Marker"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.075279,
+          12.976750
+        ]
+      }
+    }
+  ]
+}

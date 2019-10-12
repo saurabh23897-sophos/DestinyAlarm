@@ -22,15 +22,12 @@ public class Constants {
     public static final String ALARM_MESSAGE = "Your Destination Is Near!";
     public static final String ALARM_SET = "Alarm Set For Your Destination!";
     public static final String ALARM_STOPPED = "Alarm Stopped!";
-    public static final String MAPBOX_ACCESS_TOKEN =
-            "pk.eyJ1Ijoic2FuZHkyMzg5NyIsImEiOiJjazFuYnQ2OWUwOXhnM2JxM2Z4ZnkyNXpvIn0.5-DT-xdmtKjsvyXc_TARhg";
     public static final String NOTIFICATION_CHANNEL_DESCRIPTION = "Destination Alarm Channel";
     public static final String NOTIFICATION_CHANNEL_ID = "AlarmChannel";
     public static final String NOTIFICATION_CHANNEL_NAME = "Alarm Notification Channel";
     public static final String NOTIFICATION_CONTENT_TITLE = "Alarm";
     public static final String NOTIFICATION_MESSAGE = "Wake Up! Wake Up! " + ALARM_MESSAGE;
     public static final String NOTIFICATION_SERVICE_NAME = "AlarmNotificationService";
-    public static final String REQUEST_TO_ENABLE_SERVICES = "Please Enable GPS and Internet";
 
     public static final Style NOTIFICATION_STYLE =
             new NotificationCompat.BigTextStyle().bigText(NOTIFICATION_MESSAGE);
@@ -38,4 +35,42 @@ public class Constants {
     @SuppressLint("StaticFieldLeak")
     @Setter
     public static Context alarmActivityContext;
+
+    public static final String MOCK_FEATURE_GEOJSON = "{\n" +
+            "  \"type\": \"FeatureCollection\",\n" +
+            "  \"features\": [\n" +
+            "    {\n" +
+            "      \"type\": \"Feature\",\n" +
+            "      \"properties\": {\n" +
+            "        \"marker-color\": \"#7e7e7e\",\n" +
+            "        \"marker-size\": \"medium\",\n" +
+            "        \"marker-symbol\": \"\",\n" +
+            "        \"name\": \"Bangalore\"\n" +
+            "      },\n" +
+            "      \"geometry\": {\n" +
+            "        \"type\": \"Point\",\n" +
+            "        \"coordinates\": [\n" +
+            "          77.575279,\n" +
+            "          12.976750\n" +
+            "        ]\n" +
+            "      }\n" +
+            "    },\n" +
+            "    {\n" +
+            "      \"type\": \"Feature\",\n" +
+            "      \"properties\": {\n" +
+            "        \"marker-color\": \"#7e7e7e\",\n" +
+            "        \"marker-size\": \"medium\",\n" +
+            "        \"marker-symbol\": \"\",\n" +
+            "        \"name\": \"Custom Marker\"\n" +
+            "      },\n" +
+            "      \"geometry\": {\n" +
+            "        \"type\": \"Point\",\n" +
+            "        \"coordinates\": [\n" +
+            "          78.075279,\n" +
+            "          12.976750\n" +
+            "        ]\n" +
+            "      }\n" +
+            "    }\n" +
+            "  ]\n" +
+            "}";
 }
