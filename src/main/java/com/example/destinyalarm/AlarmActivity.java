@@ -6,10 +6,12 @@ import static com.example.destinyalarm.Utils.Constants.ALARM_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.ALARM_SET;
 import static com.example.destinyalarm.Utils.Constants.ALARM_STOPPED;
 import static com.example.destinyalarm.Utils.Constants.FLAGS;
+import static com.example.destinyalarm.Utils.Constants.MARKER_NAME;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_ID;
 import static com.example.destinyalarm.Utils.Constants.PERMISSION_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.SLEEP_DELAY;
 import static com.example.destinyalarm.Utils.Constants.THRESHOLD_DISTANCE_IN_METERS;
+import static com.example.destinyalarm.Utils.Constants.featureProperties;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.eq;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
@@ -19,12 +21,9 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAnchor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
 
-import java.io.InputStream;
 import java.lang.ref.WeakReference;
-import java.nio.charset.Charset;
 import java.util.Calendar;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Objects;
 
 import android.annotation.SuppressLint;
@@ -38,7 +37,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.PointF;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -54,13 +52,16 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.destinyalarm.Utils.Constants;
+import com.google.gson.JsonObject;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
+import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.BubbleLayout;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.location.LocationComponent;
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
+import com.mapbox.mapboxsdk.location.LocationComponentOptions;
 import com.mapbox.mapboxsdk.location.modes.CameraMode;
 import com.mapbox.mapboxsdk.location.modes.RenderMode;
 import com.mapbox.mapboxsdk.maps.MapView;
@@ -77,9 +78,8 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
     PendingIntent pendingIntent;
 
-    private boolean setAlarm, setDestination;
-    private double distanceToDestination;
-    private Button alarmButton;
+    private boolean setAlarm, clearSource;
+    private Button alarmButton, destinationButton;
     private Thread locationBasedAlarmTriggerThread;
 
     private static final String GEOJSON_SOURCE_ID = "GEOJSON_SOURCE_ID";
@@ -89,11 +89,11 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     private static final String PROPERTY_SELECTED = "selected";
     private static final String PROPERTY_NAME = "name";
 
-    private Location destinationLocation;
     private MapView mapView;
     private MapboxMap mapboxMap;
     private GeoJsonSource source;
     private FeatureCollection featureCollection;
+    private LatLng destinationLatLng;
 
     private Bundle activitySavedInstanceState;
 
@@ -121,7 +121,9 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         alarmButton.setEnabled(false);
         alarmButton.setOnClickListener(v -> triggerAlarm());
 
-        findViewById(R.id.setLocationButton).setOnClickListener(v -> setDestination());
+        destinationButton = findViewById(R.id.setLocationButton);
+        destinationButton.setEnabled(false);
+        destinationButton.setOnClickListener(v -> setDestination());
 
         locationBasedAlarmTriggerThread = new Thread(this::locationBasedAlarmTrigger);
         locationBasedAlarmTriggerThread.start();
@@ -129,6 +131,10 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(activitySavedInstanceState);
         mapView.getMapAsync(this);
+
+        JsonObject jsonProperties = new JsonObject();
+        jsonProperties.addProperty(PROPERTY_NAME, MARKER_NAME);
+        Constants.setFeatureProperties(jsonProperties);
     }
 
     @Override
@@ -137,7 +143,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
         mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
             log.info("MapBox Map has been loaded");
-            new LoadGeoJsonDataTask(this).execute();
             mapboxMap.addOnMapClickListener(this);
             enableLocationComponent(style);
         });
@@ -206,8 +211,14 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
     private void enableLocationComponent(@NonNull Style loadedMapStyle) {
         LocationComponent locationComponent = mapboxMap.getLocationComponent();
-        locationComponent.activateLocationComponent(
-                LocationComponentActivationOptions.builder(this, loadedMapStyle).build());
+        locationComponent.activateLocationComponent(LocationComponentActivationOptions.builder(this, loadedMapStyle)
+                .locationComponentOptions(LocationComponentOptions.builder(this)
+                        .elevation(5)
+                        .accuracyAlpha(.6f)
+                        .accuracyColor(Color.RED)
+                        .accuracyAnimationEnabled(true)
+                        .build())
+                .build());
         locationComponent.setLocationComponentEnabled(true);
         locationComponent.setCameraMode(CameraMode.TRACKING);
         locationComponent.setRenderMode(RenderMode.COMPASS);
@@ -216,8 +227,10 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     private void triggerAlarm() {
         if (setAlarm) {
             terminateAlarm();
+            destinationButton.setEnabled(true);
             alarmButton.setEnabled(false);
         } else {
+            destinationButton.setEnabled(false);
             Toast.makeText(this, ALARM_SET, Toast.LENGTH_SHORT).show();
         }
         setAlarm = !setAlarm;
@@ -225,9 +238,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     }
 
     private void setDestination() {
-        destinationLocation = new Location("");
-
-        setDestination = true;
         alarmButton.setEnabled(true);
         setAlarm = false;
         setAlarmButtonText();
@@ -267,9 +277,19 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         Toast.makeText(this, ALARM_STOPPED, Toast.LENGTH_SHORT).show();
     }
 
+    private double getDistanceToDestination() {
+        double distanceToDestination = Double.MAX_VALUE;
+        Location currentLocation = mapboxMap.getLocationComponent().getLastKnownLocation();
+        if (currentLocation != null) {
+            distanceToDestination =  destinationLatLng.distanceTo(
+                    new LatLng(currentLocation.getLatitude(), currentLocation.getLongitude()));
+        }
+        return distanceToDestination;
+    }
+
     private void locationBasedAlarmTrigger() {
         while (true) {
-            if (setAlarm && distanceToDestination < THRESHOLD_DISTANCE_IN_METERS) {
+            if (setAlarm && getDistanceToDestination() < THRESHOLD_DISTANCE_IN_METERS) {
                 Calendar cal = Calendar.getInstance();
                 cal.add(Calendar.SECOND, ALARM_DELAY);
 
@@ -290,93 +310,62 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
     @Override
     public boolean onMapClick(@NonNull LatLng point) {
-        return handleClickIcon(mapboxMap.getProjection().toScreenLocation(point));
+        destinationLatLng = point;
+        new LoadGeoJsonDataTask(this, point).execute();
+        destinationButton.setEnabled(true);
+        return true;
     }
 
     public void setUpData(final FeatureCollection collection) {
         featureCollection = collection;
         if (mapboxMap != null) {
             mapboxMap.getStyle(style -> {
-                source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
-                setupSource(style);
-                setUpImage(style);
-                setUpMarkerLayer(style);
-                setUpInfoWindowLayer(style);
-            });
-        }
-    }
-
-    private void setupSource(@NonNull Style loadedStyle) {
-        source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
-        loadedStyle.addSource(source);
-    }
-
-    private void setUpImage(@NonNull Style loadedStyle) {
-        loadedStyle.addImage(MARKER_IMAGE_ID, BitmapFactory.decodeResource(
-                this.getResources(), R.drawable.red_marker));
-    }
-
-    private void setUpMarkerLayer(@NonNull Style loadedStyle) {
-        loadedStyle.addLayer(new SymbolLayer(MARKER_LAYER_ID, GEOJSON_SOURCE_ID)
-                .withProperties(
-                        iconImage(MARKER_IMAGE_ID),
-                        iconAllowOverlap(true),
-                        iconOffset(new Float[] {0f, -8f})));
-    }
-
-    private void setUpInfoWindowLayer(@NonNull Style loadedStyle) {
-        loadedStyle.addLayer(new SymbolLayer(CALLOUT_LAYER_ID, GEOJSON_SOURCE_ID)
-                .withProperties(
-                        iconImage("{name}"),
-                        iconAnchor(ICON_ANCHOR_BOTTOM),
-                        iconAllowOverlap(true),
-                        iconOffset(new Float[] {-2f, -28f}))
-                .withFilter(eq((get(PROPERTY_SELECTED)), literal(true))));
-    }
-
-    private void refreshSource() {
-        if (source != null && featureCollection != null) {
-            source.setGeoJson(featureCollection);
-        }
-    }
-
-    private boolean handleClickIcon(PointF screenPoint) {
-        List<Feature> features = mapboxMap.queryRenderedFeatures(screenPoint, MARKER_LAYER_ID);
-        if (!features.isEmpty()) {
-            String name = features.get(0).getStringProperty(PROPERTY_NAME);
-            List<Feature> featureList = featureCollection.features();
-            if (featureList != null) {
-                for (Feature feature : featureList) {
-                    if (feature.getStringProperty(PROPERTY_NAME).equals(name) && feature.properties() != null) {
-                        feature.properties().addProperty(PROPERTY_SELECTED,
-                                !feature.getBooleanProperty(PROPERTY_SELECTED));
-                        refreshSource();
-                    }
+                if (clearSource) {
+                    style.removeLayer(CALLOUT_LAYER_ID);
+                    style.removeLayer(MARKER_LAYER_ID);
+                    style.removeImage(MARKER_IMAGE_ID);
+                    style.removeSource(source);
                 }
-            }
-            return true;
-        } else {
-            return false;
+
+                source = new GeoJsonSource(GEOJSON_SOURCE_ID, featureCollection);
+                style.addSource(source);
+                style.addImage(MARKER_IMAGE_ID, BitmapFactory.decodeResource(
+                        this.getResources(), R.drawable.red_marker));
+                style.addLayer(new SymbolLayer(MARKER_LAYER_ID, GEOJSON_SOURCE_ID)
+                        .withProperties(
+                                iconImage(MARKER_IMAGE_ID),
+                                iconAllowOverlap(true),
+                                iconOffset(new Float[] {0f, -8f})));
+                style.addLayer(new SymbolLayer(CALLOUT_LAYER_ID, GEOJSON_SOURCE_ID)
+                        .withProperties(
+                                iconImage("{name}"),
+                                iconAnchor(ICON_ANCHOR_BOTTOM),
+                                iconAllowOverlap(true),
+                                iconOffset(new Float[] {-2f, -28f}))
+                        .withFilter(eq((get(PROPERTY_SELECTED)), literal(true))));
+                clearSource = true;
+            });
         }
     }
 
     private static class LoadGeoJsonDataTask extends AsyncTask<Void, Void, FeatureCollection> {
 
         private final WeakReference<AlarmActivity> activityRef;
+        private final LatLng latLng;
 
-        LoadGeoJsonDataTask(AlarmActivity activity) {
+        LoadGeoJsonDataTask(AlarmActivity activity, LatLng latLng) {
             this.activityRef = new WeakReference<>(activity);
+            this.latLng = latLng;
         }
 
         @Override
         protected FeatureCollection doInBackground(Void... params) {
-            AlarmActivity activity = activityRef.get();
-
-            if (activity == null) {
+            if (activityRef.get() == null) {
                 return null;
             }
 
-            return FeatureCollection.fromJson(Constants.MOCK_FEATURE_GEOJSON);
+            return FeatureCollection.fromFeature(Feature.fromGeometry(
+                    Point.fromLngLat(latLng.getLongitude(), latLng.getLatitude()), featureProperties));
         }
 
         @Override
@@ -389,7 +378,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
             if (featureCollection.features() != null) {
                 for (Feature singleFeature : featureCollection.features()) {
-                    singleFeature.addBooleanProperty(PROPERTY_SELECTED, false);
+                    singleFeature.addBooleanProperty(PROPERTY_SELECTED, true);
                 }
             }
 
@@ -454,7 +443,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
             if (activity != null && activity.mapboxMap != null && bitmapHashMap != null) {
                 activity.mapboxMap.getStyle(style -> style.addImages(bitmapHashMap));
             }
-            Toast.makeText(activity, R.string.tap_on_marker_instruction, Toast.LENGTH_SHORT).show();
         }
     }
 
