@@ -58,6 +58,8 @@ import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.Mapbox;
 import com.mapbox.mapboxsdk.annotations.BubbleLayout;
+import com.mapbox.mapboxsdk.camera.CameraPosition;
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory;
 import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.location.LocationComponent;
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
@@ -74,7 +76,8 @@ import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallback, MapboxMap.OnMapClickListener {
+public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallback, MapboxMap.OnMapClickListener,
+        MapboxMap.OnCameraIdleListener {
 
     PendingIntent pendingIntent;
 
@@ -138,17 +141,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
     }
 
     @Override
-    public void onMapReady(@NonNull MapboxMap mapboxMap) {
-        this.mapboxMap = mapboxMap;
-
-        mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
-            log.info("MapBox Map has been loaded");
-            mapboxMap.addOnMapClickListener(this);
-            enableLocationComponent(style);
-        });
-    }
-
-    @Override
     public void onStart() {
         super.onStart();
         mapView.onStart();
@@ -196,7 +188,7 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
 
     @Override
     public void onRequestPermissionsResult (int requestCode, @NonNull String[] permissions,
-                                            @NonNull int[] grantResults) {
+            @NonNull int[] grantResults) {
         if (requestCode == PERMISSION_REQUEST_CODE) {
             for (int i = 0; i < grantResults.length; i++) {
                 if (grantResults[i] != PackageManager.PERMISSION_GRANTED) {
@@ -207,6 +199,33 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
             }
             initAll();
         }
+    }
+
+    @Override
+    public void onMapReady(@NonNull MapboxMap mapboxMap) {
+        this.mapboxMap = mapboxMap;
+
+        mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
+            log.info("MapBox Map has been loaded");
+            mapboxMap.addOnMapClickListener(this);
+            enableLocationComponent(style);
+        });
+    }
+
+    @Override
+    public boolean onMapClick(@NonNull LatLng point) {
+        destinationLatLng = point;
+        new LoadGeoJsonDataTask(this, destinationLatLng).execute();
+        destinationButton.setEnabled(true);
+        return true;
+    }
+
+
+    @Override
+    public void onCameraIdle() {
+        destinationLatLng = mapboxMap.getCameraPosition().target;
+        new LoadGeoJsonDataTask(this, destinationLatLng).execute();
+        destinationButton.setEnabled(true);
     }
 
     private void enableLocationComponent(@NonNull Style loadedMapStyle) {
@@ -308,14 +327,6 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
         }
     }
 
-    @Override
-    public boolean onMapClick(@NonNull LatLng point) {
-        destinationLatLng = point;
-        new LoadGeoJsonDataTask(this, point).execute();
-        destinationButton.setEnabled(true);
-        return true;
-    }
-
     public void setUpData(final FeatureCollection collection) {
         featureCollection = collection;
         if (mapboxMap != null) {
@@ -345,6 +356,10 @@ public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallba
                         .withFilter(eq((get(PROPERTY_SELECTED)), literal(true))));
                 clearSource = true;
             });
+            mapboxMap.animateCamera(CameraUpdateFactory.newCameraPosition(
+                    new CameraPosition.Builder()
+                            .target(destinationLatLng)
+                            .build()));
         }
     }
 
