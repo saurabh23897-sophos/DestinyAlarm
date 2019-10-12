@@ -6,10 +6,8 @@ import static com.example.destinyalarm.Utils.Constants.ALARM_REQUEST_CODE;
 import static com.example.destinyalarm.Utils.Constants.ALARM_SET;
 import static com.example.destinyalarm.Utils.Constants.ALARM_STOPPED;
 import static com.example.destinyalarm.Utils.Constants.FLAGS;
-import static com.example.destinyalarm.Utils.Constants.MAPBOX_ACCESS_TOKEN;
 import static com.example.destinyalarm.Utils.Constants.NOTIFICATION_ID;
 import static com.example.destinyalarm.Utils.Constants.PERMISSION_REQUEST_CODE;
-import static com.example.destinyalarm.Utils.Constants.REQUEST_TO_ENABLE_SERVICES;
 import static com.example.destinyalarm.Utils.Constants.SLEEP_DELAY;
 import static com.example.destinyalarm.Utils.Constants.THRESHOLD_DISTANCE_IN_METERS;
 
@@ -22,27 +20,30 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationListener;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.example.destinyalarm.Utils.Constants;
 import com.mapbox.mapboxsdk.Mapbox;
+import com.mapbox.mapboxsdk.location.LocationComponent;
+import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions;
+import com.mapbox.mapboxsdk.location.modes.CameraMode;
+import com.mapbox.mapboxsdk.location.modes.RenderMode;
 import com.mapbox.mapboxsdk.maps.MapView;
+import com.mapbox.mapboxsdk.maps.MapboxMap;
+import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class AlarmActivity extends AppCompatActivity implements LocationListener {
+public class AlarmActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     PendingIntent pendingIntent;
 
@@ -53,12 +54,14 @@ public class AlarmActivity extends AppCompatActivity implements LocationListener
 
     private Location destinationLocation;
     private MapView mapView;
+    private MapboxMap mapboxMap;
 
     private Bundle activitySavedInstanceState;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Mapbox.getInstance(getApplicationContext(), getString(R.string.mapbox_accessToken));
         setContentView(R.layout.activity_main);
         Constants.setAlarmActivityContext(this);
         activitySavedInstanceState = savedInstanceState;
@@ -83,13 +86,19 @@ public class AlarmActivity extends AppCompatActivity implements LocationListener
         locationBasedAlarmTriggerThread = new Thread(this::locationBasedAlarmTrigger);
         locationBasedAlarmTriggerThread.start();
 
-        Mapbox.getInstance(this, MAPBOX_ACCESS_TOKEN);
-        setContentView(R.layout.activity_main);
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(activitySavedInstanceState);
-        mapView.getMapAsync(mapboxMap -> mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
+        mapView.getMapAsync(this);
+    }
+
+    @Override
+    public void onMapReady(@NonNull MapboxMap mapboxMap) {
+        this.mapboxMap = mapboxMap;
+
+        mapboxMap.setStyle(Style.MAPBOX_STREETS, style -> {
             log.info("MapBox Map has been loaded");
-        }));
+            enableLocationComponent(style);
+        });
     }
 
     @Override
@@ -136,30 +145,6 @@ public class AlarmActivity extends AppCompatActivity implements LocationListener
     }
 
     @Override
-    public void onProviderDisabled(String provider) {
-        Toast.makeText(this, REQUEST_TO_ENABLE_SERVICES, Toast.LENGTH_SHORT).show();
-        showAlert();
-    }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        if (setDestination) {
-            distanceToDestination = location.distanceTo(destinationLocation);
-            setDestination = false;
-        }
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-
-    }
-
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-
-    }
-
-    @Override
     public void onRequestPermissionsResult (int requestCode, @NonNull String[] permissions,
                                             @NonNull int[] grantResults) {
         if (requestCode == PERMISSION_REQUEST_CODE) {
@@ -172,6 +157,15 @@ public class AlarmActivity extends AppCompatActivity implements LocationListener
             }
             initAll();
         }
+    }
+
+    private void enableLocationComponent(@NonNull Style loadedMapStyle) {
+        LocationComponent locationComponent = mapboxMap.getLocationComponent();
+        locationComponent.activateLocationComponent(
+                LocationComponentActivationOptions.builder(this, loadedMapStyle).build());
+        locationComponent.setLocationComponentEnabled(true);
+        locationComponent.setCameraMode(CameraMode.TRACKING);
+        locationComponent.setRenderMode(RenderMode.COMPASS);
     }
 
     private void triggerAlarm() {
@@ -247,17 +241,5 @@ public class AlarmActivity extends AppCompatActivity implements LocationListener
                 log.error("Exception occurred while introducing delay in while loop", e);
             }
         }
-    }
-
-    private void showAlert() {
-        final AlertDialog.Builder dialog = new AlertDialog.Builder(this);
-        dialog.setTitle("Enable Location")
-                .setMessage("Your Locations Settings is set to 'Off'.\nPlease Enable Location to use this app")
-                .setPositiveButton("Location Settings", (paramDialogInterface, paramInt) -> {
-                    Intent myIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-                    startActivity(myIntent);
-                })
-                .setNegativeButton("Cancel", (paramDialogInterface, paramInt) -> {});
-        dialog.show();
     }
 }

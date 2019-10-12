@@ -1,44 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:layout_margin="5dp"
-    tools:context=".AlarmActivity">
+        xmlns:mapbox="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="5dp"
+        tools:context=".AlarmActivity">
 
     <com.mapbox.mapboxsdk.maps.MapView
             android:id="@+id/mapView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_alignParentTop="true"
-            android:layout_above="@id/alarmButtonsLayout" />
+            mapbox:mapbox_cameraZoom="12"
+            android:layout_above="@id/alarmButtonsLayout"
+            android:layout_alignParentTop="true" />
 
     <LinearLayout
-        android:id="@+id/alarmButtonsLayout"
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="5dp">
+            android:id="@+id/alarmButtonsLayout"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_margin="5dp">
 
         <Button
-            android:id="@+id/setLocationButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="5dp"
-            android:layout_weight="1"
-            android:text="@string/set_location"
-            android:textAllCaps="false"
-            tools:ignore="ButtonStyle" />
+                android:id="@+id/setLocationButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:text="@string/set_location"
+                android:textAllCaps="false"
+                tools:ignore="ButtonStyle" />
 
         <Button
-            android:id="@+id/alarmTriggerButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_margin="5dp"
-            android:layout_weight="1"
-            android:text="@string/set_alarm"
-            android:textAllCaps="false"
-            tools:ignore="ButtonStyle" />
+                android:id="@+id/alarmTriggerButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:text="@string/set_alarm"
+                android:textAllCaps="false"
+                tools:ignore="ButtonStyle" />
     </LinearLayout>
 
 </RelativeLayout>
